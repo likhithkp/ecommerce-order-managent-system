@@ -2,9 +2,9 @@ package handlers
 
 import (
 	"encoding/json"
-	"fmt"
 	"log"
 	"net/http"
+	"time"
 
 	"github.com/likhithkp/ecommerce-order-managent-system/orders/services"
 	"github.com/likhithkp/ecommerce-order-managent-system/orders/shared"
@@ -45,7 +45,6 @@ func OrderProduct(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
-	fmt.Println(order)
 
 	count := len(order.Products)
 	if count == 0 {
@@ -80,7 +79,7 @@ func OrderProduct(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	services.OrderProduct(order)
+	_, res := services.OrderProduct(order)
 	w.Header().Set("Content-Type", "application/json")
 
 	if err := json.NewEncoder(w).Encode(&res); err != nil {
@@ -88,4 +87,20 @@ func OrderProduct(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	select {
+	case paymentRes := <-services.PaymentResponseChannel:
+		w.Header().Set("Content-Type", "application/json")
+		if err := json.NewEncoder(w).Encode(&paymentRes); err != nil {
+			log.Println("Failed to fetch the response for `handlers.OrderProduct`")
+			return
+		}
+	case <-time.After(5 * time.Second):
+		w.WriteHeader(http.StatusGatewayTimeout)
+		res := shared.Response{
+			Message:    "Payment validation timeout",
+			StatusCode: 504,
+			Data:       "",
+		}
+		json.NewEncoder(w).Encode(res)
+	}
 }

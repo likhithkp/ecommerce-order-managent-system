@@ -8,6 +8,7 @@ import (
 	"github.com/likhithkp/ecommerce-order-managent-system/orders/clients/redis"
 	"github.com/likhithkp/ecommerce-order-managent-system/orders/db"
 	"github.com/likhithkp/ecommerce-order-managent-system/orders/routes"
+	"github.com/likhithkp/ecommerce-order-managent-system/orders/services"
 )
 
 func main() {
@@ -23,6 +24,8 @@ func main() {
 
 	db.ConnectDb()
 	defer db.CloseDB()
+
+	go services.ListenPaymentValidationEvent("localhost:9092", "order_validation_group", "order.validate")
 
 	routes.InventoryRouter(mux)
 	http.ListenAndServe(":3001", mux)
